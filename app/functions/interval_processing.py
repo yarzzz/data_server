@@ -61,6 +61,6 @@ async def process_intervals(combined_data: List[List[List[object]]]) -> str:
 
     result = ""
     for interval in intervals:
-        result += f"Interval: {interval}, IDs: {''.join(assigned_ids[interval])}<br>"
+        result += f"Interval: {interval}, IDs: {''.join(sorted(assigned_ids[interval]))}<br>"
     
     return result
