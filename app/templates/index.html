@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>功能页面</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* 拖拽区域的样式 */
+        #drop-zone {
+            border: 2px dashed #007bff;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            color: #007bff;
+        }
+        #drop-zone.hover {
+            border-color: #0056b3;
+            color: #0056b3;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .file-item input {
+            margin-left: 10px;
+            flex: 1;
+            padding: 5px;
+        }
+        /* 结果显示区域的样式 */
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #007bff;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            display: none; /* 初始隐藏 */
+        }
+    </style>
+</head>
+<body>
+    <h1>选择要处理的函数</h1>
+    
+    <div>
+        <label for="function-select">选择处理函数:</label>
+        <select id="function-select">
+            <!-- 动态生成函数选项 -->
+        </select>
+    </div>
+
+    <h2>上传 CSV 文件</h2>
+    <div id="drop-zone">将 CSV 文件拖到这里，或者点击选择文件</div>
+    <input type="file" id="file-input" accept=".csv" multiple style="display:none;" />
+    <div id="file-list"></div> <!-- 用于显示已选择文件及其列名 -->
+    <button id="confirm-button">确认上传</button>
+
+    <!-- 结果显示区域 -->
+    <div id="result">
+        <h3>上传结果:</h3>
+        <pre id="result-content"></pre>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const functionSelect = document.getElementById('function-select');
+        const resultDiv = document.getElementById('result');
+        const resultContent = document.getElementById('result-content');
+
+        // 获取函数列表并填充下拉框
+        fetch('/functions')  // 假设后端接口为 /functions
+            .then(response => response.json())
+            .then(data => {
+                const functions = data.functions;
+                functions.forEach(func => {
+                    const option = document.createElement('option');
+                    option.value = func;
+                    option.textContent = func;
+                    functionSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching functions:', error);
+            });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault(); // 阻止默认行为
+            dropZone.classList.add('hover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('hover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); // 阻止默认行为
+            dropZone.classList.remove('hover');
+            const files = e.dataTransfer.files;
+
+            // 清空之前的文件列表
+            fileList.innerHTML = '';
+            if (files.length) {
+                for (const file of files) {
+                    // 创建文件项和对应的列名输入框
+                    const fileItem = document.createElement('div');
+                    fileItem.classList.add('file-item');
+                    fileItem.innerHTML = `
+                        <span>${file.name}</span>
+                        <input type="text" placeholder="列名（例如: column1,column2）" />
+                    `;
+                    fileList.appendChild(fileItem);
+                }
+                fileInput.files = files; // 将拖拽的文件赋值给 input
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            const files = fileInput.files;
+            fileList.innerHTML = ''; // 清空之前的文件列表
+            if (files.length) {
+                for (const file of files) {
+                    // 创建文件项和对应的列名输入框
+                    const fileItem = document.createElement('div');
+                    fileItem.classList.add('file-item');
+                    fileItem.innerHTML = `
+                        <span>${file.name}</span>
+                        <input type="text" placeholder="列名（例如: column1,column2）" />
+                    `;
+                    fileList.appendChild(fileItem);
+                }
+            }
+        });
+
+        document.getElementById('confirm-button').addEventListener('click', () => {
+            const formData = new FormData();
+            const files = fileInput.files;
+            const selectedFunction = functionSelect.value;
+
+            if (files.length) {
+                let allColumnsValid = true;
+                for (let i = 0; i < files.length; i++) {
+                    const columnInput = fileList.querySelectorAll('input[placeholder="列名（例如: column1,column2）"]')[i];
+                    const columnNames = columnInput.value; // 获取当前文件的列名输入框的值
+
+                    if (!columnNames) {
+                        allColumnsValid = false;
+                        alert('请为所有文件输入列名！');
+                        break;
+                    }
+
+                    formData.append('files', files[i]); // 将每个文件添加到表单数据
+                    formData.append('function', selectedFunction); // 添加选中的函数到表单数据
+                    formData.append('column_names', columnNames); // 将列名添加到表单数据
+                }
+
+                if (allColumnsValid) {
+                    // 直接调用后端接口进行上传
+                    fetch('/upload', {
+                        method: 'POST',
+                        body: formData,
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data);
+                        resultDiv.style.display = 'block'; // 显示结果区域
+                        resultContent.innerHTML = data // 将结果直接显示
+                        alert('文件上传成功！'); // 可以根据需要添加成功提示
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('上传文件时发生错误！'); // 错误提示
+                    });
+                }
+            } else {
+                alert('请先选择文件！');
+            }
+        });
+    </script>
+</body>
+</html>
