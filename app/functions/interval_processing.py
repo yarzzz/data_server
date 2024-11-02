@@ -43,9 +43,9 @@ def assign_ids(intervals):
             if new_left:
                 for x in cur_intervals:
                     ids[x].add(letters[cur])
-            cur += 1
+                cur += 1
+                new_left = False
             cur_intervals -= right[point]
-            new_left = False
             
     return ids
 
